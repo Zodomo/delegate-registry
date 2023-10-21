@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {IDelegateRegistry} from "../IDelegateRegistry.sol";
+import {RegistryData as Data}  from "./RegistryData.sol";
 
 /**
  * @title Library for calculating the hashes and storage locations used in the delegate registry
@@ -35,7 +36,7 @@ library RegistryHashes {
      * @param inputHash The bytehash to decode the type from
      * @return decodedType The delegation type
      */
-    function decodeType(bytes32 inputHash) internal pure returns (IDelegateRegistry.DelegationType decodedType) {
+    function decodeType(bytes32 inputHash) internal pure returns (Data.DelegationType decodedType) {
         assembly {
             decodedType := and(inputHash, EXTRACT_LAST_BYTE)
         }

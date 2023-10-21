@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {IDelegateRegistry as IDelegateRegistry} from "./IDelegateRegistry.sol";
 import {DelegateRelayer as DelegateRelayer} from "./DelegateRelayer.sol";
+import {RegistryData as Data}  from "./libraries/RegistryData.sol";
 import {RegistryHashes as Hashes} from "./libraries/RegistryHashes.sol";
 import {RegistryStorage as Storage} from "./libraries/RegistryStorage.sol";
 import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
@@ -76,7 +77,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
         // Relay to specified chains
-        bytes memory payload = _packPayload(DelegationType.ALL, enable, msg.sender, to, address(0), 0, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ALL, enable, msg.sender, to, address(0), 0, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateAll(msg.sender, to, rights, enable);
     }
@@ -111,7 +112,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
         // Relay to specified chains
-        bytes memory payload = _packPayload(DelegationType.CONTRACT, enable, msg.sender, to, contract_, 0, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.CONTRACT, enable, msg.sender, to, contract_, 0, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateContract(msg.sender, to, contract_, rights, enable);
     }
@@ -148,7 +149,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
         // Relay to specified chains
-        bytes memory payload = _packPayload(DelegationType.ERC721, enable, msg.sender, to, contract_, tokenId, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC721, enable, msg.sender, to, contract_, tokenId, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC721(msg.sender, to, contract_, tokenId, rights, enable);
     }
@@ -188,7 +189,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
         }
         // Relay to specified chains
-        bytes memory payload = _packPayload(DelegationType.ERC20, true, msg.sender, to, contract_, 0, amount, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC20, true, msg.sender, to, contract_, 0, amount, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC20(msg.sender, to, contract_, rights, amount);
     }
@@ -230,7 +231,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
         }
         // Relay to specified chains
-        bytes memory payload = _packPayload(DelegationType.ERC1155, true, msg.sender, to, contract_, tokenId, amount, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC1155, true, msg.sender, to, contract_, tokenId, amount, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC1155(msg.sender, to, contract_, tokenId, rights, amount);
     }
@@ -335,12 +336,12 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
      */
 
     /// @inheritdoc IDelegateRegistry
-    function getIncomingDelegations(address to) external view override returns (Delegation[] memory delegations_) {
+    function getIncomingDelegations(address to) external view override returns (Data.Delegation[] memory delegations_) {
         delegations_ = _getValidDelegationsFromHashes(incomingDelegationHashes[to]);
     }
 
     /// @inheritdoc IDelegateRegistry
-    function getOutgoingDelegations(address from) external view returns (Delegation[] memory delegations_) {
+    function getOutgoingDelegations(address from) external view returns (Data.Delegation[] memory delegations_) {
         delegations_ = _getValidDelegationsFromHashes(outgoingDelegationHashes[from]);
     }
 
@@ -355,17 +356,17 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     /// @inheritdoc IDelegateRegistry
-    function getDelegationsFromHashes(bytes32[] calldata hashes) external view returns (Delegation[] memory delegations_) {
-        delegations_ = new Delegation[](hashes.length);
+    function getDelegationsFromHashes(bytes32[] calldata hashes) external view returns (Data.Delegation[] memory delegations_) {
+        delegations_ = new Data.Delegation[](hashes.length);
         unchecked {
             for (uint256 i = 0; i < hashes.length; ++i) {
                 bytes32 location = Hashes.location(hashes[i]);
                 address from = _loadFrom(location);
                 if (_invalidFrom(from)) {
-                    delegations_[i] = Delegation({type_: DelegationType.NONE, to: address(0), from: address(0), rights: "", amount: 0, contract_: address(0), tokenId: 0});
+                    delegations_[i] = Data.Delegation({type_: Data.DelegationType.NONE, to: address(0), from: address(0), rights: "", amount: 0, contract_: address(0), tokenId: 0});
                 } else {
                     (, address to, address contract_) = _loadDelegationAddresses(location);
-                    delegations_[i] = Delegation({
+                    delegations_[i] = Data.Delegation({
                         type_: Hashes.decodeType(hashes[i]),
                         to: to,
                         from: from,
@@ -422,16 +423,16 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
 
     // Override to implement payload handling
     function _lzReceive(bytes memory payload) internal override {
-        Payload memory _payload = _unpackPayload(payload);
-        if (_payload.type_ == DelegationType.ALL) {
+        Data.Payload memory _payload = _unpackPayload(payload);
+        if (_payload.type_ == Data.DelegationType.ALL) {
             _lzDelegateAll(_payload);
-        } else if (_payload.type_ == DelegationType.CONTRACT) {
+        } else if (_payload.type_ == Data.DelegationType.CONTRACT) {
             _lzDelegateContract(_payload);
-        } else if (_payload.type_ == DelegationType.ERC721) {
+        } else if (_payload.type_ == Data.DelegationType.ERC721) {
             _lzDelegateERC721(_payload);
-        } else if (_payload.type_ == DelegationType.ERC20) {
+        } else if (_payload.type_ == Data.DelegationType.ERC20) {
             _lzDelegateERC20(_payload);
-        } else if (_payload.type_ == DelegationType.ERC1155) {
+        } else if (_payload.type_ == Data.DelegationType.ERC1155) {
             _lzDelegateERC1155(_payload);
         } else {
             revert();
@@ -439,11 +440,11 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     // Internal handling of the payload based on delegation type
-    function _lzDelegateAll(Payload memory payload) internal {}
-    function _lzDelegateContract(Payload memory payload) internal {}
-    function _lzDelegateERC721(Payload memory payload) internal {}
-    function _lzDelegateERC20(Payload memory payload) internal {}
-    function _lzDelegateERC1155(Payload memory payload) internal {}
+    function _lzDelegateAll(Data.Payload memory payload) internal {}
+    function _lzDelegateContract(Data.Payload memory payload) internal {}
+    function _lzDelegateERC721(Data.Payload memory payload) internal {}
+    function _lzDelegateERC20(Data.Payload memory payload) internal {}
+    function _lzDelegateERC1155(Data.Payload memory payload) internal {}
 
     /// @dev Helper function to push new delegation hashes to the incoming and outgoing hashes mappings
     function _pushDelegationHashes(address from, address to, bytes32 delegationHash) internal {
@@ -488,7 +489,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     /// @dev Helper function that takes an array of delegation hashes and returns an array of Delegation structs with their onchain information
-    function _getValidDelegationsFromHashes(bytes32[] storage hashes) internal view returns (Delegation[] memory delegations_) {
+    function _getValidDelegationsFromHashes(bytes32[] storage hashes) internal view returns (Data.Delegation[] memory delegations_) {
         uint256 count = 0;
         uint256 hashesLength = hashes.length;
         bytes32 hash;
@@ -499,13 +500,13 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
                 if (_invalidFrom(_loadFrom(Hashes.location(hash)))) continue;
                 filteredHashes[count++] = hash;
             }
-            delegations_ = new Delegation[](count);
+            delegations_ = new Data.Delegation[](count);
             bytes32 location;
             for (uint256 i = 0; i < count; ++i) {
                 hash = filteredHashes[i];
                 location = Hashes.location(hash);
                 (address from, address to, address contract_) = _loadDelegationAddresses(location);
-                delegations_[i] = Delegation({
+                delegations_[i] = Data.Delegation({
                     type_: Hashes.decodeType(hash),
                     to: to,
                     from: from,
@@ -567,7 +568,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     // Validates if msg.value is enough and refunds overage (if any)
-    function _validateFees(uint[] memory _nativeFees) internal pure {
+    function _validateFees(uint[] memory _nativeFees) internal {
         uint totalFees;
         for (uint i; i < _nativeFees.length;) {
             unchecked {

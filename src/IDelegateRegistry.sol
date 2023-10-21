@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: CC0-1.0
 pragma solidity >=0.8.13;
 
+import {RegistryData as Data}  from "./libraries/RegistryData.sol";
+
 /**
  * @title IDelegateRegistry
  * @custom:version 2.0
@@ -8,27 +10,6 @@ pragma solidity >=0.8.13;
  * @notice A standalone immutable registry storing delegated permissions from one address to another
  */
 interface IDelegateRegistry {
-    /// @notice Delegation type, NONE is used when a delegation does not exist or is revoked
-    enum DelegationType {
-        NONE,
-        ALL,
-        CONTRACT,
-        ERC721,
-        ERC20,
-        ERC1155
-    }
-
-    /// @notice Struct for returning delegations
-    struct Delegation {
-        DelegationType type_;
-        address to;
-        address from;
-        bytes32 rights;
-        address contract_;
-        uint256 tokenId;
-        uint256 amount;
-    }
-
     /// @notice Emitted when an address delegates or revokes rights for their entire wallet
     event DelegateAll(address indexed from, address indexed to, bytes32 rights, bool enable);
 
@@ -217,14 +198,14 @@ interface IDelegateRegistry {
      * @param to The address to retrieve delegations for
      * @return delegations Array of Delegation structs
      */
-    function getIncomingDelegations(address to) external view returns (Delegation[] memory delegations);
+    function getIncomingDelegations(address to) external view returns (Data.Delegation[] memory delegations);
 
     /**
      * @notice Returns all enabled delegations an address has given out
      * @param from The address to retrieve delegations for
      * @return delegations Array of Delegation structs
      */
-    function getOutgoingDelegations(address from) external view returns (Delegation[] memory delegations);
+    function getOutgoingDelegations(address from) external view returns (Data.Delegation[] memory delegations);
 
     /**
      * @notice Returns all hashes associated with enabled delegations an address has received
@@ -245,7 +226,7 @@ interface IDelegateRegistry {
      * @param delegationHashes is an array of hashes that correspond to delegations
      * @return delegations Array of Delegation structs, return empty structs for nonexistent or revoked delegations
      */
-    function getDelegationsFromHashes(bytes32[] calldata delegationHashes) external view returns (Delegation[] memory delegations);
+    function getDelegationsFromHashes(bytes32[] calldata delegationHashes) external view returns (Data.Delegation[] memory delegations);
 
     /**
      * ----------- STORAGE ACCESS -----------

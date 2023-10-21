@@ -4,34 +4,13 @@ pragma solidity ^0.8.21;
 import "solidity-bytes-utils/BytesLib.sol";
 import "LayerZero/interfaces/ILayerZeroEndpoint.sol";
 import "LayerZero/interfaces/ILayerZeroReceiver.sol";
+import {RegistryData as Data}  from "./libraries/RegistryData.sol";
 
 abstract contract DelegateRelayer is ILayerZeroReceiver {
     using BytesLib for bytes;
 
     error NotLayerZero(); // Thrown when !lzEndpoint calls lzReceive()
     error NotDelegateRegistry(); // Thrown if !DelegateRegistry sends a message via LayerZero
-
-    // Used to distinguish between delegation types
-    enum DelegationType {
-        NONE,
-        ALL,
-        CONTRACT,
-        ERC721,
-        ERC20,
-        ERC1155
-    }
-
-    // All relevant portions of a delegation action to send via LayerZero
-    struct Payload {
-        DelegationType type_;
-        bool enable;
-        address from;
-        address to;
-        address contract_;
-        uint256 tokenId;
-        uint256 amount;
-        bytes32 rights;
-    }
 
     // LayerZero endpoint for the chain contract is deployed to
     ILayerZeroEndpoint public immutable lzEndpoint;
@@ -66,7 +45,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     // Handles packing all delegation type parameters for transmitting cross-chain
     function _packPayload(
-        DelegationType type_,
+        Data.DelegationType type_,
         bool enable,
         address from,
         address to,
@@ -79,8 +58,8 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     }
 
     // Used to process a cross-chain payload once it is received
-    function _unpackPayload(bytes memory _payload) internal pure returns (Payload memory payload) {
-        DelegationType type_ = DelegationType(uint8(_payload[0]));
+    function _unpackPayload(bytes memory _payload) internal pure returns (Data.Payload memory payload) {
+        Data.DelegationType type_ = Data.DelegationType(uint8(_payload[0]));
         bool enable = (_payload[1] != 0);
         address from = _payload.slice(2, 20).toAddress(0);
         address to = _payload.slice(22, 20).toAddress(0);
@@ -89,7 +68,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         uint256 amount = _payload.slice(94, 32).toUint256(0);
         bytes32 rights = _payload.slice(126, 32).toBytes32(0);
 
-        payload = Payload({
+        payload = Data.Payload({
             type_: type_,
             enable: enable,
             from: from,
