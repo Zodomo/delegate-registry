@@ -335,6 +335,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
      * ----------- INTERNAL -----------
      */
 
+    // Override to implement payload handling
     function _lzReceive(bytes memory payload) internal override {
         Payload memory _payload = _unpackPayload(payload);
         if (_payload.type_ == Type.ALL) {
@@ -352,6 +353,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         }
     }
 
+    // Internal handling of the payload based on delegation type
     function _lzDelegateAll(Payload memory payload) internal {}
     function _lzDelegateContract(Payload memory payload) internal {}
     function _lzDelegateERC721(Payload memory payload) internal {}

@@ -8,10 +8,12 @@ import "LayerZero/interfaces/ILayerZeroReceiver.sol";
 abstract contract DelegateRelayer is ILayerZeroReceiver {
     using BytesLib for bytes;
 
-    error NotLayerZero();
-    error NotDelegateRegistry();
-    error InsufficientPayment();
+    error NotLayerZero(); // Thrown when !lzEndpoint calls lzReceive()
+    error TransferFailed(); // Thrown if delegator overpays on relay fee
+    error NotDelegateRegistry(); // Thrown if !DelegateRegistry sends a message via LayerZero
+    error InsufficientPayment(); // Thrown if payment doesn't meet total fee specified in _relayDelegation()
 
+    // Used to distinguish between delegation types
     enum Type {
         ALL,
         CONTRACT,
@@ -20,9 +22,10 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         ERC1155
     }
 
+    // All relevant portions of a delegation action to send via LayerZero
     struct Payload {
-        bool enable;
         Type type_;
+        bool enable;
         address from;
         address to;
         address contract_;
@@ -31,12 +34,15 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         bytes32 rights;
     }
 
+    // LayerZero endpoint for the chain contract is deployed to
     ILayerZeroEndpoint public immutable lzEndpoint;
 
     constructor(address _lzEndpoint) {
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
     }
 
+    // Called by LayerZero infrastructure to deliver a message
+    // Chain ID and nonce aren't required. We only allow ourselves to send per chain, so data ordering isn't important
     function lzReceive(
         uint16,
         bytes calldata _srcAddress,
@@ -56,11 +62,13 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         _lzReceive(_payload);
     }
 
+    // Overridden in DelegateRegistry to implement payload handling
     function _lzReceive(bytes memory _payload) internal virtual;
 
+    // Handles packing all delegation type parameters for transmitting cross-chain
     function _packPayload(
-        bool enable,
         Type type_,
+        bool enable,
         address from,
         address to,
         address contract_,
@@ -71,9 +79,10 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         return abi.encodePacked(enable, uint8(type_), from, to, contract_, tokenId, amount, rights);
     }
 
+    // Used to process a cross-chain payload once it is received
     function _unpackPayload(bytes memory _payload) internal pure returns (Payload memory payload) {
-        bool enable = (_payload[0] != 0);
-        Type type_ = Type(uint8(_payload[1]));
+        Type type_ = Type(uint8(_payload[0]));
+        bool enable = (_payload[1] != 0);
         address from = _payload.slice(2, 20).toAddress(0);
         address to = _payload.slice(22, 20).toAddress(0);
         address contract_ = _payload.slice(42, 20).toAddress(0);
@@ -82,8 +91,8 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         bytes32 rights = _payload.slice(126, 32).toBytes32(0);
 
         payload = Payload({
-            enable: enable,
             type_: type_,
+            enable: enable,
             from: from,
             to: to,
             contract_: contract_,
@@ -93,6 +102,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         });
     }
 
+    // Sends a payload to the respective chain, relaying all required information to LayerZero's endpoint
     function _lzSend(
         uint16 _dstChainId,
         address _zroPaymentAddress,
@@ -110,6 +120,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         );
     }
 
+    // Called to relay a message to as many chains as programmed
     function _relayDelegation(
         address _zroPaymentAddress,
         bytes memory _payload,
@@ -124,6 +135,12 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         }
         if (totalFees < msg.value) {
             revert InsufficientPayment();
+        }
+        if (msg.value > totalFees) {
+            (bool success, ) = payable(msg.sender).call{ value: msg.value - totalFees }("");
+            if (!success) {
+                revert TransferFailed();
+            }
         }
         // TODO: Relay to other chains
     } 
