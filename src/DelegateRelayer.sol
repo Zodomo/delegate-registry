@@ -10,12 +10,13 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     error NotLayerZero();
     error NotDelegateRegistry();
+    error InsufficientPayment();
 
     enum Type {
         ALL,
         CONTRACT,
-        ERC20,
         ERC721,
+        ERC20,
         ERC1155
     }
 
@@ -32,8 +33,8 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     ILayerZeroEndpoint public immutable lzEndpoint;
 
-    constructor(address _endpoint) {
-        lzEndpoint = ILayerZeroEndpoint(_endpoint);
+    constructor(address _lzEndpoint) {
+        lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
     }
 
     function lzReceive(
@@ -41,7 +42,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         bytes calldata _srcAddress,
         uint64,
         bytes calldata _payload
-    ) public override {
+    ) external override {
         // lzReceive() must only be called by the LayerZero endpoint
         if (msg.sender != address(lzEndpoint)) {
             revert NotLayerZero();
@@ -108,4 +109,22 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
             _adapterParams
         );
     }
+
+    function _relayDelegation(
+        address _zroPaymentAddress,
+        bytes memory _payload,
+        uint[] memory _nativeFees
+    ) internal {
+        uint totalFees;
+        for (uint i; i < _nativeFees.length;) {
+            unchecked {
+                totalFees += _nativeFees[i];
+                ++i;
+            }
+        }
+        if (totalFees < msg.value) {
+            revert InsufficientPayment();
+        }
+        // TODO: Relay to other chains
+    } 
 }

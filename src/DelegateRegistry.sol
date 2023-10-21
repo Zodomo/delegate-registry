@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {IDelegateRegistry as IDelegateRegistry} from "./IDelegateRegistry.sol";
+import {DelegateRelayer as DelegateRelayer} from "./DelegateRelayer.sol";
 import {RegistryHashes as Hashes} from "./libraries/RegistryHashes.sol";
 import {RegistryStorage as Storage} from "./libraries/RegistryStorage.sol";
 import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
@@ -13,7 +14,7 @@ import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
  * @custom:coauthor mireynolds
  * @notice A standalone immutable registry storing delegated permissions from one address to another
  */
-contract DelegateRegistry is IDelegateRegistry {
+contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     /// @dev Only this mapping should be used to verify delegations; the other mapping arrays are for enumerations
     mapping(bytes32 delegationHash => bytes32[5] delegationStorage) internal delegations;
 
@@ -22,6 +23,8 @@ contract DelegateRegistry is IDelegateRegistry {
 
     /// @dev Delegate enumeration inbox, for pushing new hashes only
     mapping(address to => bytes32[] delegationHashes) internal incomingDelegationHashes;
+
+    constructor(address _lzEndpoint) DelegateRelayer(_lzEndpoint) { }
 
     /**
      * ----------- WRITE -----------
@@ -331,6 +334,29 @@ contract DelegateRegistry is IDelegateRegistry {
     /**
      * ----------- INTERNAL -----------
      */
+
+    function _lzReceive(bytes memory payload) internal override {
+        Payload memory _payload = _unpackPayload(payload);
+        if (_payload.type_ == Type.ALL) {
+            _lzDelegateAll(_payload);
+        } else if (_payload.type_ == Type.CONTRACT) {
+            _lzDelegateContract(_payload);
+        } else if (_payload.type_ == Type.ERC721) {
+            _lzDelegateERC721(_payload);
+        } else if (_payload.type_ == Type.ERC20) {
+            _lzDelegateERC20(_payload);
+        } else if (_payload.type_ == Type.ERC1155) {
+            _lzDelegateERC1155(_payload);
+        } else {
+            revert();
+        }
+    }
+
+    function _lzDelegateAll(Payload memory payload) internal {}
+    function _lzDelegateContract(Payload memory payload) internal {}
+    function _lzDelegateERC721(Payload memory payload) internal {}
+    function _lzDelegateERC20(Payload memory payload) internal {}
+    function _lzDelegateERC1155(Payload memory payload) internal {}
 
     /// @dev Helper function to push new delegation hashes to the incoming and outgoing hashes mappings
     function _pushDelegationHashes(address from, address to, bytes32 delegationHash) internal {

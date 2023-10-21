@@ -5,7 +5,7 @@ import {DelegateRegistry} from "src/DelegateRegistry.sol";
 
 /// @dev harness contract that exposes internal registry methods as external ones
 contract RegistryHarness is DelegateRegistry {
-    constructor() {
+    constructor(address _lzEndpoint) DelegateRegistry(_lzEndpoint) {
         delegations[0][0] = 0;
     }
 
