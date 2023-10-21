@@ -11,6 +11,25 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     error NotLayerZero();
     error NotDelegateRegistry();
 
+    enum Type {
+        ALL,
+        CONTRACT,
+        ERC20,
+        ERC721,
+        ERC1155
+    }
+
+    struct Payload {
+        bool enable;
+        Type type_;
+        address from;
+        address to;
+        address contract_;
+        uint256 tokenId;
+        uint256 amount;
+        bytes32 rights;
+    }
+
     ILayerZeroEndpoint public immutable lzEndpoint;
 
     constructor(address _endpoint) {
@@ -37,6 +56,41 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     }
 
     function _lzReceive(bytes memory _payload) internal virtual;
+
+    function _packPayload(
+        bool enable,
+        Type type_,
+        address from,
+        address to,
+        address contract_,
+        uint256 tokenId,
+        uint256 amount,
+        bytes32 rights
+    ) internal pure returns (bytes memory) {
+        return abi.encodePacked(enable, uint8(type_), from, to, contract_, tokenId, amount, rights);
+    }
+
+    function _unpackPayload(bytes memory _payload) internal pure returns (Payload memory payload) {
+        bool enable = (_payload[0] != 0);
+        Type type_ = Type(uint8(_payload[1]));
+        address from = _payload.slice(2, 20).toAddress(0);
+        address to = _payload.slice(22, 20).toAddress(0);
+        address contract_ = _payload.slice(42, 20).toAddress(0);
+        uint256 tokenId = _payload.slice(62, 32).toUint256(0);
+        uint256 amount = _payload.slice(94, 32).toUint256(0);
+        bytes32 rights = _payload.slice(126, 32).toBytes32(0);
+
+        payload = Payload({
+            enable: enable,
+            type_: type_,
+            from: from,
+            to: to,
+            contract_: contract_,
+            tokenId: tokenId,
+            amount: amount,
+            rights: rights
+        });
+    }
 
     function _lzSend(
         uint16 _dstChainId,
