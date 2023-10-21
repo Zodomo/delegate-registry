@@ -58,6 +58,7 @@ interface IDelegateRegistry {
      */
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
+    //TODO: Update NatSpec comments for new parameters
     /**
      * @notice Allow the delegate to act on behalf of `msg.sender` for all contracts
      * @param to The address to act as delegate
@@ -65,7 +66,14 @@ interface IDelegateRegistry {
      * @param enable Whether to enable or disable this delegation, true delegates and false revokes
      * @return delegationHash The unique identifier of the delegation
      */
-    function delegateAll(address to, bytes32 rights, bool enable) external payable returns (bytes32 delegationHash);
+    function delegateAll(
+        address to,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable returns (bytes32 delegationHash);
 
     /**
      * @notice Allow the delegate to act on behalf of `msg.sender` for a specific contract
@@ -75,7 +83,15 @@ interface IDelegateRegistry {
      * @param enable Whether to enable or disable this delegation, true delegates and false revokes
      * @return delegationHash The unique identifier of the delegation
      */
-    function delegateContract(address to, address contract_, bytes32 rights, bool enable) external payable returns (bytes32 delegationHash);
+    function delegateContract(
+        address to,
+        address contract_,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable returns (bytes32 delegationHash);
 
     /**
      * @notice Allow the delegate to act on behalf of `msg.sender` for a specific ERC721 token
@@ -86,7 +102,16 @@ interface IDelegateRegistry {
      * @param enable Whether to enable or disable this delegation, true delegates and false revokes
      * @return delegationHash The unique identifier of the delegation
      */
-    function delegateERC721(address to, address contract_, uint256 tokenId, bytes32 rights, bool enable) external payable returns (bytes32 delegationHash);
+    function delegateERC721(
+        address to,
+        address contract_,
+        uint256 tokenId,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable returns (bytes32 delegationHash);
 
     /**
      * @notice Allow the delegate to act on behalf of `msg.sender` for a specific amount of ERC20 tokens
@@ -97,7 +122,15 @@ interface IDelegateRegistry {
      * @param amount The amount to delegate, > 0 delegates and 0 revokes
      * @return delegationHash The unique identifier of the delegation
      */
-    function delegateERC20(address to, address contract_, bytes32 rights, uint256 amount) external payable returns (bytes32 delegationHash);
+    function delegateERC20(
+        address to,
+        address contract_,
+        bytes32 rights,
+        uint256 amount,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable returns (bytes32 delegationHash);
 
     /**
      * @notice Allow the delegate to act on behalf of `msg.sender` for a specific amount of ERC1155 tokens
@@ -109,7 +142,16 @@ interface IDelegateRegistry {
      * @param amount The amount of that token id to delegate, > 0 delegates and 0 revokes
      * @return delegationHash The unique identifier of the delegation
      */
-    function delegateERC1155(address to, address contract_, uint256 tokenId, bytes32 rights, uint256 amount) external payable returns (bytes32 delegationHash);
+    function delegateERC1155(
+        address to,
+        address contract_,
+        uint256 tokenId,
+        bytes32 rights,
+        uint256 amount,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable returns (bytes32 delegationHash);
 
     /**
      * ----------- CHECKS -----------

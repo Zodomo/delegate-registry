@@ -17,6 +17,7 @@ import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
 contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     error TransferFailed(); // Thrown if delegator overpays on relay fee and cannot receive refund
     error InsufficientPayment(); // Thrown if payment doesn't meet total fee specified in _relayDelegation()
+    error ArrayLengthMismatch(); // Thrown if destination chain ID and native fee payment arrays arent equal length
 
     /// @dev Only this mapping should be used to verify delegations; the other mapping arrays are for enumerations
     mapping(bytes32 delegationHash => bytes32[5] delegationStorage) internal delegations;
@@ -47,7 +48,19 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     /// @inheritdoc IDelegateRegistry
-    function delegateAll(address to, bytes32 rights, bool enable) external payable override returns (bytes32 hash) {
+    function delegateAll(
+        address to,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable override returns (bytes32 hash) {
+        // Validate relay inputs
+        _validateFees(nativeFees);
+        if (dstChainIds.length != nativeFees.length) {
+            revert ArrayLengthMismatch();
+        }
         hash = Hashes.allHash(msg.sender, rights, to);
         bytes32 location = Hashes.location(hash);
         address loadedFrom = _loadFrom(location);
@@ -62,11 +75,27 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         } else if (loadedFrom == msg.sender) {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
+        // Relay to specified chains
+        bytes memory payload = _packPayload(DelegationType.ALL, enable, msg.sender, to, address(0), 0, 0, rights);
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateAll(msg.sender, to, rights, enable);
     }
 
     /// @inheritdoc IDelegateRegistry
-    function delegateContract(address to, address contract_, bytes32 rights, bool enable) external payable override returns (bytes32 hash) {
+    function delegateContract(
+        address to,
+        address contract_,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable override returns (bytes32 hash) {
+        // Validate relay inputs
+        _validateFees(nativeFees);
+        if (dstChainIds.length != nativeFees.length) {
+            revert ArrayLengthMismatch();
+        }
         hash = Hashes.contractHash(msg.sender, rights, to, contract_);
         bytes32 location = Hashes.location(hash);
         address loadedFrom = _loadFrom(location);
@@ -81,11 +110,28 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         } else if (loadedFrom == msg.sender) {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
+        // Relay to specified chains
+        bytes memory payload = _packPayload(DelegationType.CONTRACT, enable, msg.sender, to, contract_, 0, 0, rights);
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateContract(msg.sender, to, contract_, rights, enable);
     }
 
     /// @inheritdoc IDelegateRegistry
-    function delegateERC721(address to, address contract_, uint256 tokenId, bytes32 rights, bool enable) external payable override returns (bytes32 hash) {
+    function delegateERC721(
+        address to,
+        address contract_,
+        uint256 tokenId,
+        bytes32 rights,
+        bool enable,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable override returns (bytes32 hash) {
+        // Validate relay inputs
+        _validateFees(nativeFees);
+        if (dstChainIds.length != nativeFees.length) {
+            revert ArrayLengthMismatch();
+        }
         hash = Hashes.erc721Hash(msg.sender, rights, to, tokenId, contract_);
         bytes32 location = Hashes.location(hash);
         address loadedFrom = _loadFrom(location);
@@ -101,11 +147,27 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         } else if (loadedFrom == msg.sender) {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
         }
+        // Relay to specified chains
+        bytes memory payload = _packPayload(DelegationType.ERC721, enable, msg.sender, to, contract_, tokenId, 0, rights);
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC721(msg.sender, to, contract_, tokenId, rights, enable);
     }
 
     // @inheritdoc IDelegateRegistry
-    function delegateERC20(address to, address contract_, bytes32 rights, uint256 amount) external payable override returns (bytes32 hash) {
+    function delegateERC20(
+        address to,
+        address contract_,
+        bytes32 rights,
+        uint256 amount,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable override returns (bytes32 hash) {
+        // Validate relay inputs
+        _validateFees(nativeFees);
+        if (dstChainIds.length != nativeFees.length) {
+            revert ArrayLengthMismatch();
+        }
         hash = Hashes.erc20Hash(msg.sender, rights, to, contract_);
         bytes32 location = Hashes.location(hash);
         address loadedFrom = _loadFrom(location);
@@ -125,11 +187,28 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
             _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
         }
+        // Relay to specified chains
+        bytes memory payload = _packPayload(DelegationType.ERC20, true, msg.sender, to, contract_, 0, amount, rights);
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC20(msg.sender, to, contract_, rights, amount);
     }
 
     /// @inheritdoc IDelegateRegistry
-    function delegateERC1155(address to, address contract_, uint256 tokenId, bytes32 rights, uint256 amount) external payable override returns (bytes32 hash) {
+    function delegateERC1155(
+        address to,
+        address contract_,
+        uint256 tokenId,
+        bytes32 rights,
+        uint256 amount,
+        uint16[] memory dstChainIds,
+        address zroPaymentAddress,
+        uint[] memory nativeFees
+    ) external payable override returns (bytes32 hash) {
+        // Validate relay inputs
+        _validateFees(nativeFees);
+        if (dstChainIds.length != nativeFees.length) {
+            revert ArrayLengthMismatch();
+        }
         hash = Hashes.erc1155Hash(msg.sender, rights, to, tokenId, contract_);
         bytes32 location = Hashes.location(hash);
         address loadedFrom = _loadFrom(location);
@@ -150,6 +229,9 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             _updateFrom(location, Storage.DELEGATION_REVOKED);
             _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
         }
+        // Relay to specified chains
+        bytes memory payload = _packPayload(DelegationType.ERC1155, true, msg.sender, to, contract_, tokenId, amount, rights);
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
         emit DelegateERC1155(msg.sender, to, contract_, tokenId, rights, amount);
     }
 
@@ -341,15 +423,15 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     // Override to implement payload handling
     function _lzReceive(bytes memory payload) internal override {
         Payload memory _payload = _unpackPayload(payload);
-        if (_payload.type_ == Type.ALL) {
+        if (_payload.type_ == DelegationType.ALL) {
             _lzDelegateAll(_payload);
-        } else if (_payload.type_ == Type.CONTRACT) {
+        } else if (_payload.type_ == DelegationType.CONTRACT) {
             _lzDelegateContract(_payload);
-        } else if (_payload.type_ == Type.ERC721) {
+        } else if (_payload.type_ == DelegationType.ERC721) {
             _lzDelegateERC721(_payload);
-        } else if (_payload.type_ == Type.ERC20) {
+        } else if (_payload.type_ == DelegationType.ERC20) {
             _lzDelegateERC20(_payload);
-        } else if (_payload.type_ == Type.ERC1155) {
+        } else if (_payload.type_ == DelegationType.ERC1155) {
             _lzDelegateERC1155(_payload);
         } else {
             revert();

@@ -9,12 +9,11 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     using BytesLib for bytes;
 
     error NotLayerZero(); // Thrown when !lzEndpoint calls lzReceive()
-    
     error NotDelegateRegistry(); // Thrown if !DelegateRegistry sends a message via LayerZero
-    
 
     // Used to distinguish between delegation types
-    enum Type {
+    enum DelegationType {
+        NONE,
         ALL,
         CONTRACT,
         ERC721,
@@ -24,7 +23,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     // All relevant portions of a delegation action to send via LayerZero
     struct Payload {
-        Type type_;
+        DelegationType type_;
         bool enable;
         address from;
         address to;
@@ -67,7 +66,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     // Handles packing all delegation type parameters for transmitting cross-chain
     function _packPayload(
-        Type type_,
+        DelegationType type_,
         bool enable,
         address from,
         address to,
@@ -81,7 +80,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
 
     // Used to process a cross-chain payload once it is received
     function _unpackPayload(bytes memory _payload) internal pure returns (Payload memory payload) {
-        Type type_ = Type(uint8(_payload[0]));
+        DelegationType type_ = DelegationType(uint8(_payload[0]));
         bool enable = (_payload[1] != 0);
         address from = _payload.slice(2, 20).toAddress(0);
         address to = _payload.slice(22, 20).toAddress(0);
