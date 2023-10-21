@@ -15,6 +15,9 @@ import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
  * @notice A standalone immutable registry storing delegated permissions from one address to another
  */
 contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
+    error TransferFailed(); // Thrown if delegator overpays on relay fee and cannot receive refund
+    error InsufficientPayment(); // Thrown if payment doesn't meet total fee specified in _relayDelegation()
+
     /// @dev Only this mapping should be used to verify delegations; the other mapping arrays are for enumerations
     mapping(bytes32 delegationHash => bytes32[5] delegationStorage) internal delegations;
 
@@ -479,6 +482,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     /// @dev Helper function to establish whether a delegation is enabled
     function _validateFrom(bytes32 location, address from) internal view returns (bool) {
         return (from == _loadFrom(location));
+    }
+
+    // Validates if msg.value is enough and refunds overage (if any)
+    function _validateFees(uint[] memory _nativeFees) internal pure {
+        uint totalFees;
+        for (uint i; i < _nativeFees.length;) {
+            unchecked {
+                totalFees += _nativeFees[i];
+                ++i;
+            }
+        }
+        if (totalFees < msg.value) {
+            revert InsufficientPayment();
+        }
+        if (msg.value > totalFees) {
+            (bool success, ) = payable(msg.sender).call{ value: msg.value - totalFees }("");
+            if (!success) {
+                revert TransferFailed();
+            }
+        }
     }
 
     /// @dev Helper function that loads the address for the delegation according to the packing rule for delegation storage

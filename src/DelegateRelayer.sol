@@ -9,9 +9,9 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     using BytesLib for bytes;
 
     error NotLayerZero(); // Thrown when !lzEndpoint calls lzReceive()
-    error TransferFailed(); // Thrown if delegator overpays on relay fee
+    
     error NotDelegateRegistry(); // Thrown if !DelegateRegistry sends a message via LayerZero
-    error InsufficientPayment(); // Thrown if payment doesn't meet total fee specified in _relayDelegation()
+    
 
     // Used to distinguish between delegation types
     enum Type {
@@ -107,7 +107,6 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         uint16 _dstChainId,
         address _zroPaymentAddress,
         bytes memory _payload,
-        bytes memory _adapterParams,
         uint _nativeFee
     ) internal {
         lzEndpoint.send{ value: _nativeFee }(
@@ -116,32 +115,20 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
             _payload,
             payable(msg.sender),
             _zroPaymentAddress,
-            _adapterParams
+            bytes("")
         );
     }
 
-    // Called to relay a message to as many chains as programmed
+    // Called to relay a delegation to as many chains as specified
     function _relayDelegation(
+        uint16[] memory _dstChainIds,
         address _zroPaymentAddress,
         bytes memory _payload,
         uint[] memory _nativeFees
     ) internal {
-        uint totalFees;
-        for (uint i; i < _nativeFees.length;) {
-            unchecked {
-                totalFees += _nativeFees[i];
-                ++i;
-            }
+        for (uint i; i < _dstChainIds.length;) {
+            _lzSend(_dstChainIds[i], _zroPaymentAddress, _payload, _nativeFees[i]);
+            unchecked { ++i; }
         }
-        if (totalFees < msg.value) {
-            revert InsufficientPayment();
-        }
-        if (msg.value > totalFees) {
-            (bool success, ) = payable(msg.sender).call{ value: msg.value - totalFees }("");
-            if (!success) {
-                revert TransferFailed();
-            }
-        }
-        // TODO: Relay to other chains
     } 
 }
