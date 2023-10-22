@@ -421,31 +421,6 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
      * ----------- INTERNAL -----------
      */
 
-    // Override to implement payload handling
-    function _lzReceive(bytes memory payload) internal override {
-        Data.Payload memory _payload = _unpackPayload(payload);
-        if (_payload.type_ == Data.DelegationType.ALL) {
-            _lzDelegateAll(_payload);
-        } else if (_payload.type_ == Data.DelegationType.CONTRACT) {
-            _lzDelegateContract(_payload);
-        } else if (_payload.type_ == Data.DelegationType.ERC721) {
-            _lzDelegateERC721(_payload);
-        } else if (_payload.type_ == Data.DelegationType.ERC20) {
-            _lzDelegateERC20(_payload);
-        } else if (_payload.type_ == Data.DelegationType.ERC1155) {
-            _lzDelegateERC1155(_payload);
-        } else {
-            revert();
-        }
-    }
-
-    // Internal handling of the payload based on delegation type
-    function _lzDelegateAll(Data.Payload memory payload) internal {}
-    function _lzDelegateContract(Data.Payload memory payload) internal {}
-    function _lzDelegateERC721(Data.Payload memory payload) internal {}
-    function _lzDelegateERC20(Data.Payload memory payload) internal {}
-    function _lzDelegateERC1155(Data.Payload memory payload) internal {}
-
     /// @dev Helper function to push new delegation hashes to the incoming and outgoing hashes mappings
     function _pushDelegationHashes(address from, address to, bytes32 delegationHash) internal {
         outgoingDelegationHashes[from].push(delegationHash);
@@ -602,5 +577,134 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
 
     function _invalidFrom(address from) internal pure returns (bool) {
         return Ops.or(from == Storage.DELEGATION_EMPTY, from == Storage.DELEGATION_REVOKED);
+    }
+
+    /**
+     * ----------- LAYERZERO -----------
+     */
+
+    // Override to implement payload handling
+    function _lzReceive(bytes memory payload) internal override {
+        Data.Payload memory _payload = _unpackPayload(payload);
+        if (_payload.type_ == Data.DelegationType.ALL) {
+            _lzDelegateAll(_payload);
+        } else if (_payload.type_ == Data.DelegationType.CONTRACT) {
+            _lzDelegateContract(_payload);
+        } else if (_payload.type_ == Data.DelegationType.ERC721) {
+            _lzDelegateERC721(_payload);
+        } else if (_payload.type_ == Data.DelegationType.ERC20) {
+            _lzDelegateERC20(_payload);
+        } else if (_payload.type_ == Data.DelegationType.ERC1155) {
+            _lzDelegateERC1155(_payload);
+        } else {
+            revert();
+        }
+    }
+
+    // delegateAll() modified for received payload context
+    function _lzDelegateAll(Data.Payload memory payload) internal {
+        bytes32 hash = Hashes.allHash(payload.from, payload.rights, payload.to);
+        bytes32 location = Hashes.location(hash);
+        address loadedFrom = _loadFrom(location);
+        if (payload.enable) {
+            if (loadedFrom == Storage.DELEGATION_EMPTY) {
+                _pushDelegationHashes(payload.from, payload.to, hash);
+                _writeDelegationAddresses(location, payload.from, payload.to, address(0));
+                if (payload.rights != "") _writeDelegation(location, Storage.POSITIONS_RIGHTS, payload.rights);
+            } else if (loadedFrom == Storage.DELEGATION_REVOKED) {
+                _updateFrom(location, payload.from);
+            }
+        } else if (loadedFrom == payload.from) {
+            _updateFrom(location, Storage.DELEGATION_REVOKED);
+        }
+        emit DelegateAll(payload.from, payload.to, payload.rights, payload.enable);
+    }
+
+    // delegateContract() modified for received payload context
+    function _lzDelegateContract(Data.Payload memory payload) internal {
+        bytes32 hash = Hashes.contractHash(payload.from, payload.rights, payload.to, payload.contract_);
+        bytes32 location = Hashes.location(hash);
+        address loadedFrom = _loadFrom(location);
+        if (payload.enable) {
+            if (loadedFrom == Storage.DELEGATION_EMPTY) {
+                _pushDelegationHashes(payload.from, payload.to, hash);
+                _writeDelegationAddresses(location, payload.from, payload.to, payload.contract_);
+                if (payload.rights != "") _writeDelegation(location, Storage.POSITIONS_RIGHTS, payload.rights);
+            } else if (loadedFrom == Storage.DELEGATION_REVOKED) {
+                _updateFrom(location, payload.from);
+            }
+        } else if (loadedFrom == payload.from) {
+            _updateFrom(location, Storage.DELEGATION_REVOKED);
+        }
+        emit DelegateContract(payload.from, payload.to, payload.contract_, payload.rights, payload.enable);
+    }
+
+    // delegateERC721() modified for received payload context
+    function _lzDelegateERC721(Data.Payload memory payload) internal {
+        bytes32 hash = Hashes.erc721Hash(payload.from, payload.rights, payload.to, payload.tokenId, payload.contract_);
+        bytes32 location = Hashes.location(hash);
+        address loadedFrom = _loadFrom(location);
+        if (payload.enable) {
+            if (loadedFrom == Storage.DELEGATION_EMPTY) {
+                _pushDelegationHashes(payload.from, payload.to, hash);
+                _writeDelegationAddresses(location, payload.from, payload.to, payload.contract_);
+                _writeDelegation(location, Storage.POSITIONS_TOKEN_ID, payload.tokenId);
+                if (payload.rights != "") _writeDelegation(location, Storage.POSITIONS_RIGHTS, payload.rights);
+            } else if (loadedFrom == Storage.DELEGATION_REVOKED) {
+                _updateFrom(location, payload.from);
+            }
+        } else if (loadedFrom == payload.from) {
+            _updateFrom(location, Storage.DELEGATION_REVOKED);
+        }
+        emit DelegateERC721(payload.from, payload.to, payload.contract_, payload.tokenId, payload.rights, payload.enable);
+    }
+
+    // delegateERC20() modified for received payload context
+    function _lzDelegateERC20(Data.Payload memory payload) internal {
+        bytes32 hash = Hashes.erc20Hash(payload.from, payload.rights, payload.to, payload.contract_);
+        bytes32 location = Hashes.location(hash);
+        address loadedFrom = _loadFrom(location);
+        if (payload.amount != 0) {
+            if (loadedFrom == Storage.DELEGATION_EMPTY) {
+                _pushDelegationHashes(payload.from, payload.to, hash);
+                _writeDelegationAddresses(location, payload.from, payload.to, payload.contract_);
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+                if (payload.rights != "") _writeDelegation(location, Storage.POSITIONS_RIGHTS, payload.rights);
+            } else if (loadedFrom == Storage.DELEGATION_REVOKED) {
+                _updateFrom(location, payload.from);
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+            } else if (loadedFrom == payload.from) {
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+            }
+        } else if (loadedFrom == payload.from) {
+            _updateFrom(location, Storage.DELEGATION_REVOKED);
+            _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
+        }
+        emit DelegateERC20(payload.from, payload.to, payload.contract_, payload.rights, payload.amount);
+    }
+
+    // delegateERC1155() modified for received payload context
+    function _lzDelegateERC1155(Data.Payload memory payload) internal {
+        bytes32 hash = Hashes.erc1155Hash(payload.from, payload.rights, payload.to, payload.tokenId, payload.contract_);
+        bytes32 location = Hashes.location(hash);
+        address loadedFrom = _loadFrom(location);
+        if (payload.amount != 0) {
+            if (loadedFrom == Storage.DELEGATION_EMPTY) {
+                _pushDelegationHashes(payload.from, payload.to, hash);
+                _writeDelegationAddresses(location, payload.from, payload.to, payload.contract_);
+                _writeDelegation(location, Storage.POSITIONS_TOKEN_ID, payload.tokenId);
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+                if (payload.rights != "") _writeDelegation(location, Storage.POSITIONS_RIGHTS, payload.rights);
+            } else if (loadedFrom == Storage.DELEGATION_REVOKED) {
+                _updateFrom(location, payload.from);
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+            } else if (loadedFrom == payload.from) {
+                _writeDelegation(location, Storage.POSITIONS_AMOUNT, payload.amount);
+            }
+        } else if (loadedFrom == payload.from) {
+            _updateFrom(location, Storage.DELEGATION_REVOKED);
+            _writeDelegation(location, Storage.POSITIONS_AMOUNT, uint256(0));
+        }
+        emit DelegateERC1155(payload.from, payload.to, payload.contract_, payload.tokenId, payload.rights, payload.amount);
     }
 }
