@@ -43,6 +43,30 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     // Overridden in DelegateRegistry to implement payload handling
     function _lzReceive(bytes memory _payload) internal virtual;
 
+    // Helper function to get payload for use in estimateFees() (required to avoid stack too deep)
+    function getPayload(
+        Data.DelegationType type_,
+        bool enable,
+        address to,
+        address from,
+        address contract_,
+        uint256 tokenId,
+        uint256 amount,
+        bytes32 rights
+    ) external pure returns (bytes memory payload) {
+        payload = _packPayload(type_, enable, to, from, contract_, tokenId, amount, rights);
+    }
+
+    // Estimate LayerZero transmission costs for delegation parameters
+    function estimateFees(
+        uint16 dstChainId,
+        bytes calldata payload,
+        bool payInZRO,
+        bytes calldata adapterParams
+    ) external view returns (uint256 nativeFee, uint256 zroFee) {
+        (nativeFee, zroFee) = lzEndpoint.estimateFees(dstChainId, address(this), payload, payInZRO, adapterParams);
+    }
+
     // Handles packing all delegation type parameters for transmitting cross-chain
     // Optimized for sending as little data across LayerZero as necessary
     function _packPayload(
@@ -154,9 +178,9 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
             to: to,
             from: from,
             contract_: contract_,
-            rights: rights,
             tokenId: tokenId,
-            amount: amount
+            amount: amount,
+            rights: rights
         });
     }
 
@@ -166,7 +190,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         address _zroPaymentAddress,
         bytes memory _payload,
         uint _nativeFee
-    ) internal {
+    ) private {
         lzEndpoint.send{ value: _nativeFee }(
             _dstChainId,
             abi.encodePacked(address(this)),
