@@ -429,11 +429,12 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
                 bytes32 location = Hashes.location(hashes[i]);
                 address from = _loadFrom(location);
                 if (_invalidFrom(from)) {
-                    delegations_[i] = Data.Delegation({type_: Data.DelegationType.NONE, to: address(0), from: address(0), rights: "", amount: 0, contract_: address(0), tokenId: 0});
+                    delegations_[i] = Data.Delegation({type_: Data.DelegationType.NONE, enable: false, to: address(0), from: address(0), rights: "", amount: 0, contract_: address(0), tokenId: 0});
                 } else {
                     (, address to, address contract_) = _loadDelegationAddresses(location);
                     delegations_[i] = Data.Delegation({
                         type_: Hashes.decodeType(hashes[i]),
+                        enable: true,
                         to: to,
                         from: from,
                         rights: _loadDelegationBytes32(location, Storage.POSITIONS_RIGHTS),
@@ -549,6 +550,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
                 (address from, address to, address contract_) = _loadDelegationAddresses(location);
                 delegations_[i] = Data.Delegation({
                     type_: Hashes.decodeType(hash),
+                    enable: true,
                     to: to,
                     from: from,
                     rights: _loadDelegationBytes32(location, Storage.POSITIONS_RIGHTS),
@@ -651,7 +653,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
 
     // Override to implement received LayerZero payload handling and delegation function routing
     function _lzReceive(bytes memory payload) internal override {
-        Data.Payload memory _data = _unpackPayload(payload);
+        Data.Delegation memory _data = _unpackPayload(payload);
         if (_data.type_ == Data.DelegationType.ALL) {
             _delegateAll(_data.from, _data.to, _data.rights, _data.enable);
         } else if (_data.type_ == Data.DelegationType.CONTRACT) {

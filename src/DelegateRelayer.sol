@@ -54,29 +54,29 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         uint256 amount,
         bytes32 rights
     ) internal pure returns (bytes memory) {
-        return abi.encodePacked(enable, uint8(type_), from, to, contract_, tokenId, amount, rights);
+        return abi.encodePacked(uint8(type_), enable, to, from, contract_, rights, tokenId, amount);
     }
 
     // Used to process a cross-chain payload once it is received
-    function _unpackPayload(bytes memory _payload) internal pure returns (Data.Payload memory payload) {
+    function _unpackPayload(bytes memory _payload) internal pure returns (Data.Delegation memory payload) {
         Data.DelegationType type_ = Data.DelegationType(uint8(_payload[0]));
         bool enable = (_payload[1] != 0);
-        address from = _payload.slice(2, 20).toAddress(0);
-        address to = _payload.slice(22, 20).toAddress(0);
+        address to = _payload.slice(2, 20).toAddress(0);
+        address from = _payload.slice(22, 20).toAddress(0);
         address contract_ = _payload.slice(42, 20).toAddress(0);
-        uint256 tokenId = _payload.slice(62, 32).toUint256(0);
-        uint256 amount = _payload.slice(94, 32).toUint256(0);
-        bytes32 rights = _payload.slice(126, 32).toBytes32(0);
+        bytes32 rights = _payload.slice(62, 32).toBytes32(0);
+        uint256 tokenId = _payload.slice(94, 32).toUint256(0);
+        uint256 amount = _payload.slice(126, 32).toUint256(0);
 
-        payload = Data.Payload({
+        payload = Data.Delegation({
             type_: type_,
             enable: enable,
-            from: from,
             to: to,
+            from: from,
             contract_: contract_,
+            rights: rights,
             tokenId: tokenId,
-            amount: amount,
-            rights: rights
+            amount: amount
         });
     }
 

@@ -12,26 +12,15 @@ library RegistryData {
         ERC1155
     }
 
-    /// @notice Struct for returning delegations
+    /// @notice Struct for returning delegations and relaying data cross-chain
     struct Delegation {
         DelegationType type_;
-        address to;
-        address from;
-        bytes32 rights;
-        address contract_;
-        uint256 tokenId;
-        uint256 amount;
-    }
-
-    // All relevant portions of a delegation action to send via LayerZero
-    struct Payload {
-        DelegationType type_;
         bool enable;
-        address from;
         address to;
+        address from;
         address contract_;
+        bytes32 rights;
         uint256 tokenId;
         uint256 amount;
-        bytes32 rights;
     }
 }
