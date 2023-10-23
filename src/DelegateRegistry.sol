@@ -13,7 +13,9 @@ import {RegistryOps as Ops} from "./libraries/RegistryOps.sol";
  * @custom:version 2.0
  * @custom:coauthor foobar (0xfoobar)
  * @custom:coauthor mireynolds
- * @notice A standalone immutable registry storing delegated permissions from one address to another
+ * @custom:modified zodomo
+ * @notice A standalone immutable registry storing delegated permissions from one address to another.
+ * Modified to relay delegation state selectively multi-chain via LayerZero.
  */
 contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     error TransferFailed(); // Thrown if delegator overpays on relay fee and cannot receive refund
@@ -37,8 +39,8 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     // Logic separated into its own category so it could be reused in LayerZero functions without bloating contract size
 
     function _delegateAll(
-        address from,
         address to,
+        address from,
         bytes32 rights,
         bool enable
     ) internal returns (bytes32 hash) {
@@ -60,8 +62,8 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     function _delegateContract(
-        address from,
         address to,
+        address from,
         address contract_,
         bytes32 rights,
         bool enable
@@ -84,8 +86,8 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     function _delegateERC721(
-        address from,
         address to,
+        address from,
         address contract_,
         uint256 tokenId,
         bytes32 rights,
@@ -110,11 +112,11 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     function _delegateERC20(
-        address from,
         address to,
+        address from,
         address contract_,
-        bytes32 rights,
-        uint256 amount
+        uint256 amount,
+        bytes32 rights
     ) internal returns (bytes32 hash) {
         hash = Hashes.erc20Hash(from, rights, to, contract_);
         bytes32 location = Hashes.location(hash);
@@ -139,12 +141,12 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     }
 
     function _delegateERC1155(
-        address from,
         address to,
+        address from,
         address contract_,
         uint256 tokenId,
-        bytes32 rights,
-        uint256 amount
+        uint256 amount,
+        bytes32 rights
     ) internal returns (bytes32 hash) {
         hash = Hashes.erc1155Hash(from, rights, to, tokenId, contract_);
         bytes32 location = Hashes.location(hash);
@@ -201,11 +203,10 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             revert ArrayLengthMismatch();
         }
         // Execute delegateAll logic and retrieve hash
-        hash = _delegateAll(msg.sender, to, rights, enable);
+        hash = _delegateAll(to, msg.sender, rights, enable);
         // Relay to specified chains
-        bytes memory payload = _packPayload(Data.DelegationType.ALL, enable, msg.sender, to, address(0), 0, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ALL, enable, to, msg.sender, address(0), 0, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
-        emit DelegateAll(msg.sender, to, rights, enable);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -224,11 +225,10 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             revert ArrayLengthMismatch();
         }
         // Execute delegateContract logic and retrieve hash
-        hash = _delegateContract(msg.sender, to, contract_, rights, enable);
+        hash = _delegateContract(to, msg.sender, contract_, rights, enable);
         // Relay to specified chains
-        bytes memory payload = _packPayload(Data.DelegationType.CONTRACT, enable, msg.sender, to, contract_, 0, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.CONTRACT, enable, to, msg.sender, contract_, 0, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
-        emit DelegateContract(msg.sender, to, contract_, rights, enable);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -248,11 +248,10 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             revert ArrayLengthMismatch();
         }
         // Execute delegateERC721 logic and retrieve hash
-        hash = _delegateERC721(msg.sender, to, contract_, tokenId, rights, enable);
+        hash = _delegateERC721(to, msg.sender, contract_, tokenId, rights, enable);
         // Relay to specified chains
-        bytes memory payload = _packPayload(Data.DelegationType.ERC721, enable, msg.sender, to, contract_, tokenId, 0, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC721, enable, to, msg.sender, contract_, tokenId, 0, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
-        emit DelegateERC721(msg.sender, to, contract_, tokenId, rights, enable);
     }
 
     // @inheritdoc IDelegateRegistry
@@ -271,11 +270,10 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             revert ArrayLengthMismatch();
         }
         // Execute delegateERC20 logic and retrieve hash
-        hash = _delegateERC20(msg.sender, to, contract_, rights, amount);
+        hash = _delegateERC20(to, msg.sender, contract_, amount, rights);
         // Relay to specified chains
-        bytes memory payload = _packPayload(Data.DelegationType.ERC20, true, msg.sender, to, contract_, 0, amount, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC20, true, to, msg.sender, contract_, 0, amount, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
-        emit DelegateERC20(msg.sender, to, contract_, rights, amount);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -295,11 +293,10 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
             revert ArrayLengthMismatch();
         }
         // Execute delegateERC1155 logic and retrieve hash
-        hash = _delegateERC1155(msg.sender, to, contract_, tokenId, rights, amount);
+        hash = _delegateERC1155(to, msg.sender, contract_, tokenId, amount, rights);
         // Relay to specified chains
-        bytes memory payload = _packPayload(Data.DelegationType.ERC1155, true, msg.sender, to, contract_, tokenId, amount, rights);
+        bytes memory payload = _packPayload(Data.DelegationType.ERC1155, true, to, msg.sender, contract_, tokenId, amount, rights);
         _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
-        emit DelegateERC1155(msg.sender, to, contract_, tokenId, rights, amount);
     }
 
     /// @dev Transfer native token out
@@ -655,15 +652,15 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
     function _lzReceive(bytes memory payload) internal override {
         Data.Delegation memory _data = _unpackPayload(payload);
         if (_data.type_ == Data.DelegationType.ALL) {
-            _delegateAll(_data.from, _data.to, _data.rights, _data.enable);
+            _delegateAll(_data.to, _data.from, _data.rights, _data.enable);
         } else if (_data.type_ == Data.DelegationType.CONTRACT) {
-            _delegateContract(_data.from, _data.to, _data.contract_, _data.rights, _data.enable);
+            _delegateContract(_data.to, _data.from, _data.contract_, _data.rights, _data.enable);
         } else if (_data.type_ == Data.DelegationType.ERC721) {
-            _delegateERC721(_data.from, _data.to, _data.contract_, _data.tokenId, _data.rights, _data.enable);
+            _delegateERC721(_data.to, _data.from, _data.contract_, _data.tokenId, _data.rights, _data.enable);
         } else if (_data.type_ == Data.DelegationType.ERC20) {
-            _delegateERC20(_data.from, _data.to, _data.contract_, _data.rights, _data.amount);
+            _delegateERC20(_data.to, _data.from, _data.contract_, _data.amount, _data.rights);
         } else if (_data.type_ == Data.DelegationType.ERC1155) {
-            _delegateERC1155(_data.from, _data.to, _data.contract_, _data.tokenId, _data.rights, _data.amount);
+            _delegateERC1155(_data.to, _data.from, _data.contract_, _data.tokenId, _data.amount, _data.rights);
         } else {
             revert();
         }

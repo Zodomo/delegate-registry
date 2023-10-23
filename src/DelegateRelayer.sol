@@ -44,29 +44,109 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     function _lzReceive(bytes memory _payload) internal virtual;
 
     // Handles packing all delegation type parameters for transmitting cross-chain
+    // Optimized for sending as little data across LayerZero as necessary
     function _packPayload(
         Data.DelegationType type_,
         bool enable,
-        address from,
         address to,
+        address from,
         address contract_,
         uint256 tokenId,
         uint256 amount,
         bytes32 rights
     ) internal pure returns (bytes memory) {
-        return abi.encodePacked(uint8(type_), enable, to, from, contract_, rights, tokenId, amount);
+        if (type_ == Data.DelegationType.ALL) {
+            if (rights == bytes32("")) {
+                return abi.encodePacked(uint8(type_), enable, to, from);
+            } else {
+                return abi.encodePacked(uint8(type_), enable, to, from, rights);
+            }
+        } else if (type_ == Data.DelegationType.CONTRACT) {
+            if (rights == bytes32("")) {
+                return abi.encodePacked(uint8(type_), enable, to, from, contract_);
+            } else {
+                return abi.encodePacked(uint8(type_), enable, to, from, contract_, rights);
+            }
+        } else if (type_ == Data.DelegationType.ERC721) {
+            if (rights == bytes32("")) {
+                return abi.encodePacked(uint8(type_), enable, to, from, contract_, tokenId);
+            } else {
+                return abi.encodePacked(uint8(type_), enable, to, from, contract_, tokenId, rights);
+            }
+        } else if (type_ == Data.DelegationType.ERC20) {
+            if (rights == bytes32("")) {
+                return abi.encodePacked(uint8(type_), to, from, contract_, amount);
+            } else {
+                return abi.encodePacked(uint8(type_), to, from, contract_, amount, rights);
+            }
+        } else if (type_ == Data.DelegationType.ERC1155) {
+            if (rights == bytes32("")) {
+                return abi.encodePacked(uint8(type_), to, from, contract_, tokenId, amount);
+            } else {
+                return abi.encodePacked(uint8(type_), to, from, contract_, tokenId, amount, rights);
+            }
+        } else {
+            revert();
+        }
     }
 
     // Used to process a cross-chain payload once it is received
     function _unpackPayload(bytes memory _payload) internal pure returns (Data.Delegation memory payload) {
         Data.DelegationType type_ = Data.DelegationType(uint8(_payload[0]));
-        bool enable = (_payload[1] != 0);
-        address to = _payload.slice(2, 20).toAddress(0);
-        address from = _payload.slice(22, 20).toAddress(0);
-        address contract_ = _payload.slice(42, 20).toAddress(0);
-        bytes32 rights = _payload.slice(62, 32).toBytes32(0);
-        uint256 tokenId = _payload.slice(94, 32).toUint256(0);
-        uint256 amount = _payload.slice(126, 32).toUint256(0);
+        // Declare all possible variables
+        bool enable;
+        address to;
+        address from;
+        address contract_;
+        uint256 tokenId;
+        uint256 amount;
+        bytes32 rights;
+
+        // Parse optimized payload for relevant variables based on DelegationType
+        if (type_ == Data.DelegationType.ALL) {
+            enable = (_payload[1] != 0);
+            to = _payload.slice(2, 20).toAddress(0);
+            from = _payload.slice(22, 20).toAddress(0);
+            if (_payload.length > 42) {
+                rights = _payload.slice(42, 32).toBytes32(0);
+            }
+        } else if (type_ == Data.DelegationType.CONTRACT) {
+            enable = (_payload[1] != 0);
+            to = _payload.slice(2, 20).toAddress(0);
+            from = _payload.slice(22, 20).toAddress(0);
+            contract_ = _payload.slice(42, 20).toAddress(0);
+            if (_payload.length > 62) {
+                rights = _payload.slice(62, 32).toBytes32(0);
+            }
+        } else if (type_ == Data.DelegationType.ERC721) {
+            enable = (_payload[1] != 0);
+            to = _payload.slice(2, 20).toAddress(0);
+            from = _payload.slice(22, 20).toAddress(0);
+            contract_ = _payload.slice(42, 20).toAddress(0);
+            tokenId = _payload.slice(62, 32).toUint256(0);
+            if (_payload.length > 94) {
+                rights = _payload.slice(94, 32).toBytes32(0);
+            }
+        } else if (type_ == Data.DelegationType.ERC20) {
+            to = _payload.slice(1, 20).toAddress(0);
+            from = _payload.slice(21, 20).toAddress(0);
+            contract_ = _payload.slice(41, 20).toAddress(0);
+            amount = _payload.slice(61, 32).toUint256(0);
+            if (_payload.length > 93) {
+                rights = _payload.slice(93, 32).toBytes32(0);
+            }
+        } else if (type_ == Data.DelegationType.ERC1155) {
+            to = _payload.slice(1, 20).toAddress(0);
+            from = _payload.slice(21, 20).toAddress(0);
+            contract_ = _payload.slice(41, 20).toAddress(0);
+            tokenId = _payload.slice(61, 32).toUint256(0);
+            amount = _payload.slice(93, 32).toUint256(0);
+            if (_payload.length > 125) {
+                rights = _payload.slice(125, 32).toBytes32(0);
+            }
+        } else {
+            revert();
+        }
 
         payload = Data.Delegation({
             type_: type_,
