@@ -53,7 +53,8 @@ interface IDelegateRegistry {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable returns (bytes32 delegationHash);
 
     /**
@@ -71,7 +72,8 @@ interface IDelegateRegistry {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable returns (bytes32 delegationHash);
 
     /**
@@ -91,7 +93,8 @@ interface IDelegateRegistry {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable returns (bytes32 delegationHash);
 
     /**
@@ -110,7 +113,8 @@ interface IDelegateRegistry {
         uint256 amount,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable returns (bytes32 delegationHash);
 
     /**
@@ -131,7 +135,8 @@ interface IDelegateRegistry {
         uint256 amount,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable returns (bytes32 delegationHash);
 
     /**

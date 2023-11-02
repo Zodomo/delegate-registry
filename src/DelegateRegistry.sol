@@ -195,18 +195,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable override returns (bytes32 hash) {
-        // Validate relay inputs
-        _validateFees(nativeFees);
-        if (dstChainIds.length != nativeFees.length) {
-            revert ArrayLengthMismatch();
-        }
         // Execute delegateAll logic and retrieve hash
         hash = _delegateAll(to, msg.sender, rights, enable);
-        // Relay to specified chains
+        // Produce LayerZero message payload
         bytes memory payload = _packPayload(Data.DelegationType.ALL, enable, to, msg.sender, address(0), 0, 0, rights);
-        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
+        // Validate relay inputs
+        if (dstChainIds.length != nativeFees.length || dstChainIds.length != adapterParams.length) {
+            revert ArrayLengthMismatch();
+        }
+        // If zroPaymentAddress isn't address(0), assume payment is in ZRO token
+        bool payInZRO;
+        if (zroPaymentAddress != address(0)) {
+            payInZRO = true;
+        }
+        // Validate nativeFees value is sufficient for all provided destination chain IDs
+        _validateFees(dstChainIds, nativeFees, payload, payInZRO, adapterParams);
+        // Transmit delegation to all chains if bridge payment is sufficient
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees, adapterParams);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -217,18 +225,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable override returns (bytes32 hash) {
-        // Validate relay inputs
-        _validateFees(nativeFees);
-        if (dstChainIds.length != nativeFees.length) {
-            revert ArrayLengthMismatch();
-        }
         // Execute delegateContract logic and retrieve hash
         hash = _delegateContract(to, msg.sender, contract_, rights, enable);
         // Relay to specified chains
         bytes memory payload = _packPayload(Data.DelegationType.CONTRACT, enable, to, msg.sender, contract_, 0, 0, rights);
-        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
+        // Validate relay inputs
+        if (dstChainIds.length != nativeFees.length || dstChainIds.length != adapterParams.length) {
+            revert ArrayLengthMismatch();
+        }
+        // If zroPaymentAddress isn't address(0), assume payment is in ZRO token
+        bool payInZRO;
+        if (zroPaymentAddress != address(0)) {
+            payInZRO = true;
+        }
+        // Validate nativeFees value is sufficient for all provided destination chain IDs
+        _validateFees(dstChainIds, nativeFees, payload, payInZRO, adapterParams);
+        // Transmit delegation to all chains if bridge payment is sufficient
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees, adapterParams);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -240,18 +256,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         bool enable,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable override returns (bytes32 hash) {
-        // Validate relay inputs
-        _validateFees(nativeFees);
-        if (dstChainIds.length != nativeFees.length) {
-            revert ArrayLengthMismatch();
-        }
         // Execute delegateERC721 logic and retrieve hash
         hash = _delegateERC721(to, msg.sender, contract_, tokenId, rights, enable);
         // Relay to specified chains
         bytes memory payload = _packPayload(Data.DelegationType.ERC721, enable, to, msg.sender, contract_, tokenId, 0, rights);
-        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
+        // Validate relay inputs
+        if (dstChainIds.length != nativeFees.length || dstChainIds.length != adapterParams.length) {
+            revert ArrayLengthMismatch();
+        }
+        // If zroPaymentAddress isn't address(0), assume payment is in ZRO token
+        bool payInZRO;
+        if (zroPaymentAddress != address(0)) {
+            payInZRO = true;
+        }
+        // Validate nativeFees value is sufficient for all provided destination chain IDs
+        _validateFees(dstChainIds, nativeFees, payload, payInZRO, adapterParams);
+        // Transmit delegation to all chains if bridge payment is sufficient
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees, adapterParams);
     }
 
     // @inheritdoc IDelegateRegistry
@@ -262,18 +286,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         uint256 amount,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable override returns (bytes32 hash) {
-        // Validate relay inputs
-        _validateFees(nativeFees);
-        if (dstChainIds.length != nativeFees.length) {
-            revert ArrayLengthMismatch();
-        }
         // Execute delegateERC20 logic and retrieve hash
         hash = _delegateERC20(to, msg.sender, contract_, amount, rights);
         // Relay to specified chains
         bytes memory payload = _packPayload(Data.DelegationType.ERC20, true, to, msg.sender, contract_, 0, amount, rights);
-        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
+        // Validate relay inputs
+        if (dstChainIds.length != nativeFees.length || dstChainIds.length != adapterParams.length) {
+            revert ArrayLengthMismatch();
+        }
+        // If zroPaymentAddress isn't address(0), assume payment is in ZRO token
+        bool payInZRO;
+        if (zroPaymentAddress != address(0)) {
+            payInZRO = true;
+        }
+        // Validate nativeFees value is sufficient for all provided destination chain IDs
+        _validateFees(dstChainIds, nativeFees, payload, payInZRO, adapterParams);
+        // Transmit delegation to all chains if bridge payment is sufficient
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees, adapterParams);
     }
 
     /// @inheritdoc IDelegateRegistry
@@ -285,18 +317,26 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         uint256 amount,
         uint16[] memory dstChainIds,
         address zroPaymentAddress,
-        uint[] memory nativeFees
+        uint[] memory nativeFees,
+        bytes[] memory adapterParams
     ) external payable override returns (bytes32 hash) {
-        // Validate relay inputs
-        _validateFees(nativeFees);
-        if (dstChainIds.length != nativeFees.length) {
-            revert ArrayLengthMismatch();
-        }
         // Execute delegateERC1155 logic and retrieve hash
         hash = _delegateERC1155(to, msg.sender, contract_, tokenId, amount, rights);
         // Relay to specified chains
         bytes memory payload = _packPayload(Data.DelegationType.ERC1155, true, to, msg.sender, contract_, tokenId, amount, rights);
-        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees);
+        // Validate relay inputs
+        if (dstChainIds.length != nativeFees.length || dstChainIds.length != adapterParams.length) {
+            revert ArrayLengthMismatch();
+        }
+        // If zroPaymentAddress isn't address(0), assume payment is in ZRO token
+        bool payInZRO;
+        if (zroPaymentAddress != address(0)) {
+            payInZRO = true;
+        }
+        // Validate nativeFees value is sufficient for all provided destination chain IDs
+        _validateFees(dstChainIds, nativeFees, payload, payInZRO, adapterParams);
+        // Transmit delegation to all chains if bridge payment is sufficient
+        _relayDelegation(dstChainIds, zroPaymentAddress, payload, nativeFees, adapterParams);
     }
 
     /// @dev Transfer native token out
@@ -629,21 +669,44 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
      */
 
     // Validates if msg.value is enough and refunds overage (if any)
-    function _validateFees(uint[] memory _nativeFees) internal {
+    function _validateFees(
+        uint16[] memory _dstChainIds,
+        uint[] memory _nativeFees,
+        bytes memory _payload,
+        bool _payInZRO,
+        bytes[] memory _adapterParams
+    ) internal {
         uint totalFees;
-        for (uint i; i < _nativeFees.length;) {
+        uint requiredFees;
+        // Iteratively estimate fee for each destination chain and confirm payment is sufficient
+        for (uint i; i < _dstChainIds.length;) {
             unchecked {
+                uint fee;
                 totalFees += _nativeFees[i];
+                if (_payInZRO) {
+                    (, fee) = lzEndpoint.estimateFees(_dstChainIds[i], address(this), _payload, _payInZRO, _adapterParams[i]);
+                    requiredFees += fee;
+                } else {
+                    (fee, ) = lzEndpoint.estimateFees(_dstChainIds[i], address(this), _payload, _payInZRO, _adapterParams[i]);
+                    requiredFees += fee;
+                }
                 ++i;
             }
         }
-        if (totalFees < msg.value) {
+        // Verify sufficient payment has been specified in _nativeFees parameter
+        if (totalFees < requiredFees) {
             revert InsufficientPayment();
         }
-        if (msg.value > totalFees) {
-            (bool success, ) = payable(msg.sender).call{ value: msg.value - totalFees }("");
-            if (!success) {
-                revert TransferFailed();
+        // If paying in ETH, verify that msg.value is comprised of sum of stated fees (_nativeFees) and refund any overage
+        if (!_payInZRO) {
+            if (totalFees < msg.value) {
+                revert InsufficientPayment();
+            }
+            if (msg.value > totalFees) {
+                (bool success, ) = payable(msg.sender).call{ value: msg.value - totalFees }("");
+                if (!success) {
+                    revert TransferFailed();
+                }
             }
         }
     }
