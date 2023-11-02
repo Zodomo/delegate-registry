@@ -197,7 +197,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         address zroPaymentAddress,
         uint[] memory nativeFees,
         bytes[] memory adapterParams
-    ) external payable override returns (bytes32 hash) {
+    ) external payable virtual override returns (bytes32 hash) {
         // Execute delegateAll logic and retrieve hash
         hash = _delegateAll(to, msg.sender, rights, enable);
         // Produce LayerZero message payload
@@ -227,7 +227,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         address zroPaymentAddress,
         uint[] memory nativeFees,
         bytes[] memory adapterParams
-    ) external payable override returns (bytes32 hash) {
+    ) external payable virtual override returns (bytes32 hash) {
         // Execute delegateContract logic and retrieve hash
         hash = _delegateContract(to, msg.sender, contract_, rights, enable);
         // Relay to specified chains
@@ -258,7 +258,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         address zroPaymentAddress,
         uint[] memory nativeFees,
         bytes[] memory adapterParams
-    ) external payable override returns (bytes32 hash) {
+    ) external payable virtual override returns (bytes32 hash) {
         // Execute delegateERC721 logic and retrieve hash
         hash = _delegateERC721(to, msg.sender, contract_, tokenId, rights, enable);
         // Relay to specified chains
@@ -288,7 +288,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         address zroPaymentAddress,
         uint[] memory nativeFees,
         bytes[] memory adapterParams
-    ) external payable override returns (bytes32 hash) {
+    ) external payable virtual override returns (bytes32 hash) {
         // Execute delegateERC20 logic and retrieve hash
         hash = _delegateERC20(to, msg.sender, contract_, amount, rights);
         // Relay to specified chains
@@ -319,7 +319,7 @@ contract DelegateRegistry is IDelegateRegistry, DelegateRelayer {
         address zroPaymentAddress,
         uint[] memory nativeFees,
         bytes[] memory adapterParams
-    ) external payable override returns (bytes32 hash) {
+    ) external payable virtual override returns (bytes32 hash) {
         // Execute delegateERC1155 logic and retrieve hash
         hash = _delegateERC1155(to, msg.sender, contract_, tokenId, amount, rights);
         // Relay to specified chains
