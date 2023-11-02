@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: CC0-1.0
 pragma solidity ^0.8.21;
 
-import {DelegateRegistry} from "src/DelegateRegistry.sol";
+import {DelegateRegistry} from "../../src/DelegateRegistry.sol";
+import {RegistryData as Data}  from "../../src/libraries/RegistryData.sol";
 
 /// @dev harness contract that exposes internal registry methods as external ones
 contract RegistryHarness is DelegateRegistry {
+    address remoteReg;
+    bytes32[] temporaryStorage;
+
     constructor(address _lzEndpoint) DelegateRegistry(_lzEndpoint) {
         delegations[0][0] = 0;
     }
 
-    bytes32[] temporaryStorage;
+    function setRemoteReg(address reg) external {
+        remoteReg = reg;
+    }
 
     function exposedDelegations(bytes32 hash) external view returns (bytes32[5] memory) {
         return delegations[hash];
@@ -39,7 +45,7 @@ contract RegistryHarness is DelegateRegistry {
         _writeDelegationAddresses(location, from, to, contract_);
     }
 
-    function exposedGetValidDelegationsFromHashes(bytes32[] calldata hashes) external returns (Delegation[] memory delegations_) {
+    function exposedGetValidDelegationsFromHashes(bytes32[] calldata hashes) external returns (Data.Delegation[] memory delegations_) {
         temporaryStorage = hashes;
         return _getValidDelegationsFromHashes(temporaryStorage);
     }
@@ -67,5 +73,22 @@ contract RegistryHarness is DelegateRegistry {
 
     function exposedLoadDelegationAddresses(bytes32 location) external view returns (address from, address to, address contract_) {
         return _loadDelegationAddresses(location);
+    }
+
+    function _lzSend(
+        uint16 _dstChainId,
+        address _zroPaymentAddress,
+        bytes memory _payload,
+        uint _nativeFee,
+        bytes memory _adapterParams
+    ) internal override {
+        lzEndpoint.send{ value: _nativeFee }(
+            _dstChainId,
+            abi.encodePacked(remoteReg),
+            _payload,
+            payable(msg.sender),
+            _zroPaymentAddress,
+            _adapterParams
+        );
     }
 }

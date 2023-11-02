@@ -192,7 +192,7 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         bytes memory _payload,
         uint _nativeFee,
         bytes memory _adapterParams
-    ) private {
+    ) internal virtual {
         lzEndpoint.send{ value: _nativeFee }(
             _dstChainId,
             abi.encodePacked(address(this)),
