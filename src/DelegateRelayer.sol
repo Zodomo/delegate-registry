@@ -12,6 +12,9 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     error NotLayerZero(); // Thrown when !lzEndpoint calls lzReceive()
     error NotDelegateRegistry(); // Thrown if !DelegateRegistry sends a message via LayerZero
 
+    // Emitted when delegation state is relayed across chain
+    event DelegationRelayed(uint16 indexed dstChainId, bytes payload);
+
     // LayerZero endpoint for the chain contract is deployed to
     ILayerZeroEndpoint public immutable lzEndpoint;
 
@@ -27,14 +30,14 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
         bytes calldata _srcAddress,
         uint64,
         bytes calldata _payload
-    ) external override {
+    ) external virtual override {
         // lzReceive() must only be called by the LayerZero endpoint
         if (msg.sender != address(lzEndpoint)) {
             revert NotLayerZero();
         }
         // Supporting any chain as origin is possible if we assume registry address will be the same across 
         // all LayerZero-supported chains. This should hold true if CREATE2 functions the same everywhere.
-        if (!_srcAddress.equal(abi.encodePacked(address(this)))) {
+        if (!_srcAddress.equal(abi.encodePacked(address(this), address(this)))) {
             revert NotDelegateRegistry();
         }
         // Process internal message handling
@@ -195,12 +198,13 @@ abstract contract DelegateRelayer is ILayerZeroReceiver {
     ) internal virtual {
         lzEndpoint.send{ value: _nativeFee }(
             _dstChainId,
-            abi.encodePacked(address(this)),
+            abi.encodePacked(address(this), address(this)),
             _payload,
             payable(msg.sender),
             _zroPaymentAddress,
             _adapterParams
         );
+        emit DelegationRelayed(_dstChainId, _payload);
     }
 
     // Called to relay a delegation to as many chains as specified
